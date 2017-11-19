@@ -8,7 +8,7 @@ import (
 	"log"
 	"strconv"
 	"reflect"
-	//"github.com/pborman/uuid"
+	"github.com/pborman/uuid"
 	"cloud.google.com/go/bigtable"
 	"context"
 )
@@ -151,9 +151,9 @@ func handlerPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//id := uuid.New()
+	id := uuid.New()
 	// Save to ES.
-	//saveToES(&p, id)
+	saveToES(&p, id)
 
 	ctx := context.Background()
 	// you must update project name here
