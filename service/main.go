@@ -57,6 +57,8 @@ var (
 
 func main() {
 	// Create a client
+	// A client uses a sniffing process to find all nodes of your cluster by default, automatically. 
+	// If you don't need this, you can disable it with the option elastic.SetSniff(false).
 	client, err := elastic.NewClient(elastic.SetURL(ES_URL), elastic.SetSniff(false))
 	if err != nil {
 		panic(err)
@@ -70,11 +72,12 @@ func main() {
 	}
 	if !exists {
 		// Create a new index.
+		// Add a mapping type called posts.
+		// Specify a field "location" and data type.
 		mapping := `{
 			"mappings":{
-				"post":{
+				"post":{     
 					"properties":{
-
 						"location":{
 							"type":"geo_point"
 						}
@@ -85,14 +88,16 @@ func main() {
 		`
 		_, err := client.CreateIndex(INDEX).Body(mapping).Do()
 		if err != nil {
-			// Handle error
 			panic(err)
 		}
 	}
 	fmt.Println("Started service successfully")
+	
 	// Here we are instantiating the gorilla/mux router
 	r := mux.NewRouter()
-
+	
+	// Reference https://auth0.com/blog/authentication-in-golang
+	// Create a new JWT middleware with a Option that uses the key ‘mySigningKey’ such that we know this token is from our server.
 	var jwtMiddleware = jwtmiddleware.New(jwtmiddleware.Options{
 		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
 			return mySigningKey, nil
@@ -111,9 +116,9 @@ func main() {
 
 func handlerSearch(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Received one request for search")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "*")  // Allow cross domain visit
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 	if r.Method != "GET" {
 		return
