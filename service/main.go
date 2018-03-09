@@ -44,7 +44,7 @@ const (
 	BT_INSTANCE = "around-post"
 	// Needs to update this URL if you deploy it to cloud.
 	ES_URL          = "http://xx.xx.xx.xx:9200"
-	ENABLE_MEMCACHE = false
+	ENABLE_REDIS = false
 	ENABLE_BIGTABLE = false
 	REDIS_URL       = "redis-xxxxx.c1.us-central1-2.gce.cloud.redislabs.com:xxxxx"
 )
@@ -84,8 +84,7 @@ func main() {
 					}
 				}
 			}
-		}
-		`
+		}`
 		_, err := client.CreateIndex(INDEX).Body(mapping).Do()
 		if err != nil {
 			panic(err)
@@ -96,13 +95,16 @@ func main() {
 	// Here we are instantiating the gorilla/mux router
 	r := mux.NewRouter()
 	
-	// Reference https://auth0.com/blog/authentication-in-golang
+	// Reference https://github.com/auth0/go-jwt-middleware
 	// Create a new JWT middleware with a Option that uses the key ‘mySigningKey’ such that we know this token is from our server.
 	var jwtMiddleware = jwtmiddleware.New(jwtmiddleware.Options{
+		// The function that will return the Key to validate the JWT
 		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
 			return mySigningKey, nil
 		},
 		SigningMethod: jwt.SigningMethodHS256,
+		// The default value for the Extractor option is bearer token in an Authorization header, i.e.,
+		// Authorization: bearer {token} as we used in the frontend.
 	})
 
 	r.Handle("/post", jwtMiddleware.Handler(http.HandlerFunc(handlerPost)))
@@ -133,7 +135,7 @@ func handlerSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	key := r.URL.Query().Get("lat") + ":" + r.URL.Query().Get("lon") + ":" + ran
-	if ENABLE_MEMCACHE {
+	if ENABLE_REDIS {
 		rs_client := redis.NewClient(&redis.Options{
 			Addr:     REDIS_URL,
 			Password: "", // no password set
@@ -150,7 +152,7 @@ func handlerSearch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Create a client
+	// If not found in redis or redis is not set up, search it in elasticSearch.
 	client, err := elastic.NewClient(elastic.SetURL(ES_URL), elastic.SetSniff(false))
 	if err != nil {
 		http.Error(w, "ES is not setup", http.StatusInternalServerError)
@@ -163,14 +165,13 @@ func handlerSearch(w http.ResponseWriter, r *http.Request) {
 	q := elastic.NewGeoDistanceQuery("location")
 	q = q.Distance(ran).Lat(lat).Lon(lon)
 
-	// Some delay may range from seconds to minutes. So if you don't get enough results. Try it later.
+	// Some delay may range from seconds to minutes. 
 	searchResult, err := client.Search().
 		Index(INDEX).
 		Query(q).
 		Pretty(true).
 		Do()
 	if err != nil {
-		// Handle error
 		m := fmt.Sprintf("Failed to search ES %v", err)
 		fmt.Println(m)
 		http.Error(w, m, http.StatusInternalServerError)
@@ -188,9 +189,8 @@ func handlerSearch(w http.ResponseWriter, r *http.Request) {
 	var typ Post
 	var ps []Post
 	for _, item := range searchResult.Each(reflect.TypeOf(typ)) {
-		p := item.(Post)
+		p := item.(Post) // type assertion
 		fmt.Printf("Post by %s: %s at lat %v and lon %v\n", p.User, p.Message, p.Location.Lat, p.Location.Lon)
-		// TODO(vincent): Perform filtering based on keywords such as web spam etc.
 		ps = append(ps, p)
 
 	}
@@ -202,7 +202,7 @@ func handlerSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ENABLE_MEMCACHE {
+	if ENABLE_REDIS {
 		rs_client := redis.NewClient(&redis.Options{
 			Addr:     REDIS_URL,
 			Password: "", // no password set
