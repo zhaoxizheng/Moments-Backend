@@ -229,7 +229,7 @@ func handlerPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := r.Context().Value("user")
+	user := r.Context().Value("user") // After processed by jwt middleware, the Authorization in Header is decoded to user in context.
 	if user == nil {
 		m := fmt.Sprintf("Unable to find user in context")
 		fmt.Println(m)
@@ -238,7 +238,8 @@ func handlerPost(w http.ResponseWriter, r *http.Request) {
 	}
 	claims := user.(*jwt.Token).Claims
 	username := claims.(jwt.MapClaims)["username"]
-
+	
+	// Reference : https://github.com/golang-samples/http/blob/master/fileupload/main.go
 	// 32 << 20 is the maxMemory param for ParseMultipartForm
 	// After you call ParseMultipartForm, the file will be saved in the server memory with maxMemory size.
 	// If the file size is larger than maxMemory, the rest of the data will be saved in a system temporary file.
@@ -289,6 +290,7 @@ func handlerPost(w http.ResponseWriter, r *http.Request) {
 }
 
 // Save an image to GCS.
+// Reference : https://godoc.org/cloud.google.com/go/storage
 func saveToGCS(ctx context.Context, r io.Reader, bucket, name string) (*storage.ObjectHandle, *storage.ObjectAttrs, error) {
 	client, err := storage.NewClient(ctx)
 	if err != nil {
@@ -320,6 +322,7 @@ func saveToGCS(ctx context.Context, r io.Reader, bucket, name string) (*storage.
 	return obj, attrs, err
 }
 
+// A working example : https://gist.github.com/olivere/e4a376b4783c0914e44ea4f745ce2ebf
 // Save a post to ElasticSearch
 func saveToES(p *Post, id string) {
 	// Create a client
@@ -335,7 +338,7 @@ func saveToES(p *Post, id string) {
 		Type(TYPE).
 		Id(id).
 		BodyJson(p).
-		Refresh(true).
+		Refresh(true). // making all operations performed since the last refresh available for search
 		Do()
 	if err != nil {
 		panic(err)
@@ -345,7 +348,7 @@ func saveToES(p *Post, id string) {
 	fmt.Printf("Post is saved to Index: %s\n", p.Message)
 }
 
-// Save a post to BigTable
+// Save a post to BigTable, https://cloud.google.com/bigtable/docs/go/reference
 func saveToBigTable(p *Post, id string) {
 	ctx := context.Background()
 	bt_client, err := bigtable.NewClient(ctx, BIGTABLE_PROJECT_ID, BT_INSTANCE)
