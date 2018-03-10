@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -52,8 +51,8 @@ func checkUser(username, password string) bool {
 
 // Add a new user. Return true if successfully.
 func addUser(username, password string) bool {
-	// In theory, BigTable is a better option for storing user credentials than ES. However,
-	// since BT is more expensive than ES so usually students will disable BT.
+	// In theory, BigTable is a better option for storing user credentials than ES. 
+	// However, BT is more expensive than ES for students.
 	es_client, err := elastic.NewClient(elastic.SetURL(ES_URL), elastic.SetSniff(false))
 	if err != nil {
 		fmt.Printf("ES is not setup %v\n", err)
