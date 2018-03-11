@@ -1,5 +1,4 @@
-
-package com.elder;
+package com.around;
 
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableRow;
@@ -23,19 +22,23 @@ import java.util.List;
 
 public class PostDumpFlow {
 
-    private static final String PROJECT_ID = "elder-170214";
+    private static final String PROJECT_ID = "around-170214";
+    private static final String INSTANCE_ID = "moments-post";
     private static final Charset UTF8_CHARSET = Charset.forName("UTF-8");
 
 
     public static void main(String[] args) {
-        // Start by defining the options for the pipeline.
+        // Reference : https://cloud.google.com/dataflow/pipelines/constructing-your-pipeline
+        // Starts by defining the options for the pipeline.
         PipelineOptions options = PipelineOptionsFactory.fromArgs(args).create();
-
+        
+        // Then create the pipeline
         Pipeline p = Pipeline.create(options);
-
+        
+        // Specifying the Cloud Bigtable configuration as a connector to use Cloud Bigtable in a Cloud Dataflow pipeline.
         CloudBigtableScanConfiguration config = new CloudBigtableScanConfiguration.Builder()
                 .withProjectId(PROJECT_ID)
-                .withInstanceId("elder-post")
+                .withInstanceId(INSTANCE_ID)
                 .withTableId("post")
                 .build();
 
@@ -47,8 +50,9 @@ public class PostDumpFlow {
         fields.add(new TableFieldSchema().setName("lon").setType("FLOAT"));
 
         TableSchema schema = new TableSchema().setFields(fields);
-
+        // Reading Data Into Your Pipeline
         PCollection<Result> btRows = p.apply(Read.from(CloudBigtableIO.read(config)));
+        // Applying transforms to process pipeline data
         PCollection<TableRow> bqRows = btRows.apply(ParDo.of(new DoFn<Result, TableRow>() {
             @Override
             public void processElement(ProcessContext c) {
@@ -67,14 +71,14 @@ public class PostDumpFlow {
                 c.output(row);
             }
         }));
-
+        // writing final pipeline data to BigQuery
         bqRows.apply(BigQueryIO.Write
                 .named("Write")
                 .to(PROJECT_ID + ":" + "post_analysis" + "." + "daily_dump_1")
                 .withSchema(schema)
-                .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_TRUNCATE)
+                .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_TRUNCATE) // If the table already exists, BigQuery overwrites the table data. 
                 .withCreateDisposition(BigQueryIO.Write.CreateDisposition.CREATE_IF_NEEDED));
-
+        // Running pipeline 
         p.run();
     }
 }
