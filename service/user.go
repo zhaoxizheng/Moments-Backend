@@ -147,10 +147,9 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		claims["username"] = u.Username
 		claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
 
-		/* Sign the token with our secret */
+		/* Sign the token with secret */
 		tokenString, _ := token.SignedString(mySigningKey)
-
-		/* Finally, write the token to the browser window */
+		
 		w.Write([]byte(tokenString))
 	} else {
 		fmt.Println("Invalid password or username.")
