@@ -52,7 +52,7 @@ func checkUser(username, password string) bool {
 // Add a new user. Return true if successfully.
 func addUser(username, password string) bool {
 	// In theory, BigTable is a better option for storing user credentials than ES. 
-	// However, BT is more expensive than ES for students.
+	// However, BT is more expensive than ES.
 	es_client, err := elastic.NewClient(elastic.SetURL(ES_URL), elastic.SetSniff(false))
 	if err != nil {
 		fmt.Printf("ES is not setup %v\n", err)
@@ -82,6 +82,8 @@ func addUser(username, password string) bool {
 	}
 
 	// Save it to index
+	// https://www.elastic.co/guide/en/elasticsearch/client/javascript-api/current/api-reference.html
+	// refresh If true then refresh the effected shards to make this operation visible to search.
 	_, err = es_client.Index().
 		Index(INDEX).
 		Type(TYPE_USER).
